@@ -1,9 +1,11 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ProtectedRoute from "@/components/ProtectedRoute"; 
 import Home from "./pages/Home";
 import BrowseGigs from "./pages/BrowseGigs";
 import PostGig from "./pages/PostGig";
@@ -25,13 +27,33 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/browse" element={<BrowseGigs />} />
-            <Route path="/post" element={<PostGig />} />
-            <Route path="/gig/:id" element={<GigDetails />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/browse" element={
+              <ProtectedRoute>
+                <BrowseGigs />
+              </ProtectedRoute>
+            } />
+            <Route path="/post" element={
+              <ProtectedRoute requiredRole="client">
+                <PostGig />
+              </ProtectedRoute>
+            } />
+            <Route path="/gig/:id" element={
+              <ProtectedRoute>
+                <GigDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

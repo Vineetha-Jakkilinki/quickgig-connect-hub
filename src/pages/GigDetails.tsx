@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,62 +15,83 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { Database } from "@/integrations/supabase/types";
 
-// Mock gig data
-const gigs = [
-  {
-    id: "1",
-    title: "Need a YouTube Thumbnail for my Study Vlog",
-    description: "I want a clean, modern thumbnail with bold fonts. Use my picture. Text should be: 'How I Study for Exams'. The thumbnail should be visually appealing and stand out in YouTube search results. I'm looking for something that uses good typography and subtle effects. I can provide my photo, but you should be able to choose a good crop and edit it appropriately for maximum impact.",
-    budget: 150,
-    deadline: "2025-05-01",
-    category: "Design",
-    client: {
-      name: "Riya S.",
-      rating: 4.8,
-      gigsPosts: 5,
-      joinedDate: "2024-12-15"
-    }
-  },
-  {
-    id: "2",
-    title: "Help with Python Script for Data Analysis",
-    description: "I need a simple script to analyze CSV data for my statistics project. Must have visualizations. The script should be able to calculate basic statistics like mean, median, standard deviation, etc. Should also generate at least 3 different types of visualizations (scatter plot, histogram, box plot). Documentation is important so I can understand how to use it. Code should be clean and well-commented.",
-    budget: 200,
-    deadline: "2025-04-25",
-    category: "Code",
-    client: {
-      name: "Aditya K.",
-      rating: 4.5,
-      gigsPosts: 3,
-      joinedDate: "2025-01-05"
-    }
-  },
-  {
-    id: "3",
-    title: "Proofread my English Essay (5 pages)",
-    description: "Looking for someone to check grammar, punctuation and improve the flow of my essay on climate change. The essay is approximately 1,500 words and needs to be checked for grammatical errors, sentence structure, and overall coherence. I'd also appreciate feedback on the strength of my arguments and suggestions for improvement. This is for my Environmental Studies class.",
-    budget: 100,
-    deadline: "2025-04-23",
-    category: "Docs",
-    client: {
-      name: "Neha P.",
-      rating: 4.9,
-      gigsPosts: 8,
-      joinedDate: "2024-10-20"
-    }
-  },
-];
+type Gig = Database['public']['Tables']['gigs']['Row'] & {
+  profiles: {
+    name: string;
+    email: string;
+  } | null;
+};
+
+type Application = Database['public']['Tables']['applications']['Row'];
 
 const GigDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const [gig, setGig] = useState<Gig | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [applicationText, setApplicationText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
   
-  // Find the gig with the matching ID
-  const gig = gigs.find((g) => g.id === id);
+  // Fetch the gig and check if the user has already applied
+  useEffect(() => {
+    const fetchGig = async () => {
+      if (!id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("gigs")
+          .select(`
+            *,
+            profiles:created_by (name, email)
+          `)
+          .eq("id", id)
+          .single();
+          
+        if (error) throw error;
+        if (data) setGig(data as Gig);
+        
+        // Check if user has already applied
+        if (user) {
+          const { data: applicationData, error: applicationError } = await supabase
+            .from("applications")
+            .select("id")
+            .eq("gig_id", id)
+            .eq("freelancer_id", user.id)
+            .single();
+            
+          if (!applicationError && applicationData) {
+            setHasApplied(true);
+          }
+        }
+      } catch (error: any) {
+        console.error("Error fetching gig:", error);
+        toast.error("Failed to load gig details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchGig();
+  }, [id, user]);
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-12 text-center">
+          <p>Loading gig details...</p>
+        </div>
+      </Layout>
+    );
+  }
   
   if (!gig) {
     return (
@@ -89,16 +110,42 @@ const GigDetails = () => {
   }
   
   const handleApply = async () => {
-    if (!applicationText.trim()) return;
+    if (!user || !profile) {
+      toast.error("You must be logged in to apply");
+      navigate("/login");
+      return;
+    }
+    
+    if (profile.role !== "freelancer") {
+      toast.error("Only freelancers can apply to gigs");
+      return;
+    }
+    
+    if (!applicationText.trim()) {
+      toast.error("Please write a message to the client");
+      return;
+    }
     
     setIsSubmitting(true);
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from("applications")
+        .insert({
+          gig_id: gig.id,
+          freelancer_id: user.id,
+          message: applicationText,
+          status: "pending"
+        });
+        
+      if (error) throw error;
+      
       setIsSuccess(true);
-    } catch (error) {
+      toast.success("Your application has been sent!");
+      setHasApplied(true);
+    } catch (error: any) {
       console.error("Error submitting application:", error);
+      toast.error(error.message || "Failed to submit application");
     } finally {
       setIsSubmitting(false);
     }
@@ -106,7 +153,9 @@ const GigDetails = () => {
   
   const deadlineDate = new Date(gig.deadline);
   const today = new Date();
-  const daysRemaining = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const daysRemaining = differenceInDays(deadlineDate, today);
+  const isOwner = user?.id === gig.created_by;
+  const canApply = !isOwner && profile?.role === "freelancer" && !hasApplied;
   
   return (
     <Layout>
@@ -167,70 +216,86 @@ const GigDetails = () => {
                 </p>
               </div>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="w-full mb-4">Apply for this Gig</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Apply for Gig</DialogTitle>
-                    <DialogDescription>
-                      Tell the client why you're a good fit for this gig.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  {isSuccess ? (
-                    <div className="text-center py-4">
-                      <div className="mb-4 text-green-500 text-6xl">✓</div>
-                      <h3 className="text-xl font-medium mb-2">Application Sent!</h3>
-                      <p className="text-muted-foreground mb-4">
-                        The client will review your application and get in touch if interested.
-                      </p>
-                      <DialogClose asChild>
-                        <Button variant="outline">Close</Button>
-                      </DialogClose>
-                    </div>
-                  ) : (
-                    <>
-                      <Textarea
-                        placeholder="Introduce yourself and explain why you're the right person for this gig..."
-                        className="min-h-[150px] mb-4"
-                        value={applicationText}
-                        onChange={(e) => setApplicationText(e.target.value)}
-                      />
-                      <DialogFooter>
-                        <Button 
-                          type="submit" 
-                          onClick={handleApply} 
-                          disabled={isSubmitting || !applicationText.trim()}
-                        >
-                          {isSubmitting ? "Sending..." : "Send Application"}
-                        </Button>
-                      </DialogFooter>
-                    </>
-                  )}
-                </DialogContent>
-              </Dialog>
+              {canApply && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="w-full mb-4">Apply for this Gig</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Apply for Gig</DialogTitle>
+                      <DialogDescription>
+                        Tell the client why you're a good fit for this gig.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    {isSuccess ? (
+                      <div className="text-center py-4">
+                        <div className="mb-4 text-green-500 text-6xl">✓</div>
+                        <h3 className="text-xl font-medium mb-2">Application Sent!</h3>
+                        <p className="text-muted-foreground mb-4">
+                          The client will review your application and get in touch if interested.
+                        </p>
+                        <DialogClose asChild>
+                          <Button variant="outline">Close</Button>
+                        </DialogClose>
+                      </div>
+                    ) : (
+                      <>
+                        <Textarea
+                          placeholder="Introduce yourself and explain why you're the right person for this gig..."
+                          className="min-h-[150px] mb-4"
+                          value={applicationText}
+                          onChange={(e) => setApplicationText(e.target.value)}
+                        />
+                        <DialogFooter>
+                          <Button 
+                            type="submit" 
+                            onClick={handleApply} 
+                            disabled={isSubmitting || !applicationText.trim()}
+                          >
+                            {isSubmitting ? "Sending..." : "Send Application"}
+                          </Button>
+                        </DialogFooter>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              )}
+              
+              {hasApplied && (
+                <div className="bg-primary/10 text-primary p-4 rounded-md mb-4 text-center">
+                  <p className="font-semibold">You've already applied to this gig!</p>
+                  <p className="text-sm mt-1">The client will review your application soon.</p>
+                </div>
+              )}
+              
+              {isOwner && (
+                <div className="bg-secondary/20 p-4 rounded-md mb-4 text-center">
+                  <p className="font-semibold">This is your gig</p>
+                  <p className="text-sm mt-1">You can manage it from your dashboard.</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-3 w-full"
+                    onClick={() => navigate("/dashboard")}
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
+              )}
               
               <div className="border-t border-border pt-4">
                 <h3 className="font-medium mb-3">About the Client</h3>
                 <div className="flex items-center mb-2">
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold mr-3">
-                    {gig.client.name.charAt(0)}
+                    {gig.profiles?.name?.[0].toUpperCase() || '?'}
                   </div>
                   <div>
-                    <p className="font-medium">{gig.client.name}</p>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <span className="flex items-center">
-                        ⭐ {gig.client.rating}
-                      </span>
-                      <span className="mx-2">•</span>
-                      <span>{gig.client.gigsPosts} gigs</span>
-                    </div>
+                    <p className="font-medium">{gig.profiles?.name || 'Anonymous'}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Member since {format(new Date(gig.client.joinedDate), "MMMM yyyy")}
+                  Member since {format(new Date(gig.created_at), "MMMM yyyy")}
                 </p>
               </div>
             </div>

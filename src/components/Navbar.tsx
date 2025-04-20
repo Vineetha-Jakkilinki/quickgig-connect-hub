@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +10,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -23,9 +24,11 @@ const Navbar = () => {
             <Link to="/browse" className="text-foreground/70 hover:text-foreground transition-colors">
               Browse Gigs
             </Link>
-            <Link to="/post" className="text-foreground/70 hover:text-foreground transition-colors">
-              Post a Gig
-            </Link>
+            {profile?.role === "client" && (
+              <Link to="/post" className="text-foreground/70 hover:text-foreground transition-colors">
+                Post a Gig
+              </Link>
+            )}
           </div>
         </div>
 
@@ -35,7 +38,7 @@ const Navbar = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-                    {user.email?.[0].toUpperCase()}
+                    {profile?.name?.[0].toUpperCase() || user.email?.[0].toUpperCase()}
                   </div>
                 </Button>
               </DropdownMenuTrigger>

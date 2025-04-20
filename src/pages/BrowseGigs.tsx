@@ -1,8 +1,7 @@
 
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import GigCard from "@/components/GigCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,227 +11,168 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Slider } from "@/components/ui/slider";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { toast } from "sonner";
+import GigCard from "@/components/GigCard";
 
-// Demo data for gigs
-const allGigs = [
-  {
-    id: "1",
-    title: "Need a YouTube Thumbnail for my Study Vlog",
-    description: "I want a clean, modern thumbnail with bold fonts. Use my picture. Text should be: 'How I Study for Exams'.",
-    budget: 150,
-    deadline: "2025-05-01",
-    category: "Design"
-  },
-  {
-    id: "2",
-    title: "Help with Python Script for Data Analysis",
-    description: "I need a simple script to analyze CSV data for my statistics project. Must have visualizations.",
-    budget: 200,
-    deadline: "2025-04-25",
-    category: "Code"
-  },
-  {
-    id: "3",
-    title: "Proofread my English Essay (5 pages)",
-    description: "Looking for someone to check grammar, punctuation and improve the flow of my essay on climate change.",
-    budget: 100,
-    deadline: "2025-04-23",
-    category: "Docs"
-  },
-  {
-    id: "4",
-    title: "Logo Design for Student Club",
-    description: "Need a simple but professional logo for our new tech club at university. Should include the name 'TechMinds'.",
-    budget: 180,
-    deadline: "2025-04-29",
-    category: "Design"
-  },
-  {
-    id: "5",
-    title: "React Component Bug Fix",
-    description: "Having issues with a form submission in my React app. Need someone to debug and fix it.",
-    budget: 250,
-    deadline: "2025-04-26",
-    category: "Code"
-  },
-  {
-    id: "6",
-    title: "PowerPoint for Class Presentation",
-    description: "Need a professional-looking PowerPoint with 15 slides about renewable energy sources.",
-    budget: 120,
-    deadline: "2025-04-22",
-    category: "Docs"
-  },
-];
+type Gig = Database['public']['Tables']['gigs']['Row'];
+type GigCategory = Database['public']['Enums']['gig_category'];
 
 const BrowseGigs = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialCategory = searchParams.get("category") || "";
-  
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
-  const [priceRange, setPriceRange] = useState([50, 500]);
-  const [sortBy, setSortBy] = useState("newest");
-  
-  // Filter gigs based on search criteria
-  const filteredGigs = allGigs.filter((gig) => {
-    const matchesSearch = gig.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          gig.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "" || gig.category.toLowerCase() === selectedCategory.toLowerCase();
-    const matchesBudget = gig.budget >= priceRange[0] && gig.budget <= priceRange[1];
-    
-    return matchesSearch && matchesCategory && matchesBudget;
+  const navigate = useNavigate();
+  const [gigs, setGigs] = useState<Gig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    category: "all" as string,
+    search: "",
+    budget: [50, 500] as [number, number],
   });
-  
-  // Sort gigs
-  const sortedGigs = [...filteredGigs].sort((a, b) => {
-    if (sortBy === "newest") {
-      return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
-    } else if (sortBy === "oldest") {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-    } else if (sortBy === "highest") {
-      return b.budget - a.budget;
-    } else if (sortBy === "lowest") {
-      return a.budget - b.budget;
+
+  const fetchGigs = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("gigs")
+        .select(`
+          *,
+          profiles:created_by (name)
+        `)
+        .eq("status", "open")
+        .gte("budget", filters.budget[0])
+        .lte("budget", filters.budget[1]);
+
+      if (filters.category !== "all") {
+        query = query.eq("category", filters.category);
+      }
+
+      if (filters.search) {
+        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setGigs(data as any);
+    } catch (error: any) {
+      console.error("Error fetching gigs:", error);
+      toast.error("Failed to load gigs. " + error.message);
+    } finally {
+      setLoading(false);
     }
-    return 0;
-  });
-  
-  const updateCategoryFilter = (category: string) => {
-    setSelectedCategory(category);
-    if (category) {
-      searchParams.set("category", category);
-    } else {
-      searchParams.delete("category");
-    }
-    setSearchParams(searchParams);
   };
-  
+
+  useEffect(() => {
+    fetchGigs();
+  }, [filters.category, filters.budget]);
+
+  const handleSearch = () => {
+    fetchGigs();
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setFilters(prev => ({ ...prev, category: value }));
+  };
+
+  const handleBudgetChange = (value: [number, number]) => {
+    setFilters(prev => ({ ...prev, budget: value }));
+  };
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row items-start gap-8">
-          {/* Filters Sidebar */}
-          <div className="w-full md:w-64 sticky top-24">
-            <div className="bg-background border border-border rounded-lg p-4">
-              <h2 className="text-lg font-medium mb-4">Filters</h2>
+        <h1 className="text-3xl font-bold mb-2">Browse Gigs</h1>
+        <p className="text-muted-foreground mb-8">
+          Find opportunities that match your skills and interests
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+          <div className="lg:col-span-1">
+            <div className="bg-background border border-border rounded-lg p-4 sticky top-24">
+              <h2 className="text-lg font-semibold mb-4">Filters</h2>
               
-              <Accordion type="single" collapsible defaultValue="category">
-                <AccordionItem value="category">
-                  <AccordionTrigger>Category</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2">
-                      <Button 
-                        variant={selectedCategory === "" ? "default" : "outline"} 
-                        size="sm" 
-                        className="w-full justify-start"
-                        onClick={() => updateCategoryFilter("")}
-                      >
-                        All Categories
-                      </Button>
-                      <Button 
-                        variant={selectedCategory === "design" ? "default" : "outline"} 
-                        size="sm" 
-                        className="w-full justify-start"
-                        onClick={() => updateCategoryFilter("design")}
-                      >
-                        Design
-                      </Button>
-                      <Button 
-                        variant={selectedCategory === "code" ? "default" : "outline"} 
-                        size="sm" 
-                        className="w-full justify-start"
-                        onClick={() => updateCategoryFilter("code")}
-                      >
-                        Code
-                      </Button>
-                      <Button 
-                        variant={selectedCategory === "docs" ? "default" : "outline"} 
-                        size="sm" 
-                        className="w-full justify-start"
-                        onClick={() => updateCategoryFilter("docs")}
-                      >
-                        Docs
-                      </Button>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+              <div className="space-y-6">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Category</label>
+                  <Select
+                    value={filters.category}
+                    onValueChange={handleCategoryChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="Design">Design</SelectItem>
+                      <SelectItem value="Code">Code</SelectItem>
+                      <SelectItem value="Docs">Docs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <AccordionItem value="budget">
-                  <AccordionTrigger>Budget Range</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-6">
-                      <Slider 
-                        defaultValue={[50, 500]} 
-                        min={50} 
-                        max={500} 
-                        step={10}
-                        value={priceRange}
-                        onValueChange={setPriceRange}
-                      />
-                      <div className="flex items-center justify-between">
-                        <span>₹{priceRange[0]}</span>
-                        <span>₹{priceRange[1]}</span>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Budget Range: ₹{filters.budget[0]} - ₹{filters.budget[1]}
+                  </label>
+                  <Slider
+                    min={50}
+                    max={500}
+                    step={10}
+                    value={[filters.budget[0], filters.budget[1]]}
+                    onValueChange={(value) => handleBudgetChange(value as [number, number])}
+                    className="mt-2"
+                  />
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => setFilters({
+                    category: "all",
+                    search: "",
+                    budget: [50, 500],
+                  })}
+                >
+                  Reset Filters
+                </Button>
+              </div>
             </div>
           </div>
           
-          {/* Main Content */}
-          <div className="flex-1">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-              <h1 className="text-3xl font-bold">Browse Gigs</h1>
-              
-              <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                <Input
-                  placeholder="Search gigs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-xs"
-                />
-                
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="oldest">Oldest First</SelectItem>
-                    <SelectItem value="highest">Highest Budget</SelectItem>
-                    <SelectItem value="lowest">Lowest Budget</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="lg:col-span-3">
+            <div className="flex gap-2 mb-6">
+              <Input
+                placeholder="Search gigs..."
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                className="flex-1"
+              />
+              <Button onClick={handleSearch}>Search</Button>
             </div>
             
-            {/* Results count */}
-            <p className="text-muted-foreground mb-6">
-              {sortedGigs.length} {sortedGigs.length === 1 ? 'gig' : 'gigs'} found
-            </p>
-            
-            {/* Gigs Grid */}
-            {sortedGigs.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedGigs.map((gig) => (
-                  <GigCard key={gig.id} {...gig} />
-                ))}
+            {loading ? (
+              <div className="text-center py-20">
+                <p>Loading gigs...</p>
+              </div>
+            ) : gigs.length === 0 ? (
+              <div className="text-center py-20 border border-border rounded-lg">
+                <h3 className="text-xl font-semibold mb-2">No gigs found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your filters or check back later for new opportunities
+                </p>
               </div>
             ) : (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No gigs found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search or filters to find what you're looking for.
-                </p>
+              <div className="grid grid-cols-1 gap-4">
+                {gigs.map((gig) => (
+                  <div 
+                    key={gig.id}
+                    className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/gig/${gig.id}`)}
+                  >
+                    <GigCard gig={gig} />
+                  </div>
+                ))}
               </div>
             )}
           </div>

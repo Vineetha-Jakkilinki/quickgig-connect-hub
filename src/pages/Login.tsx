@@ -13,15 +13,26 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-interface LoginForm {
-  email: string;
-  password: string;
-}
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { signIn } = useAuth();
-  const form = useForm<LoginForm>();
+  const { signIn, isLoading } = useAuth();
+  
+  const form = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
   const onSubmit = async (data: LoginForm) => {
     await signIn(data.email, data.password);
@@ -75,8 +86,8 @@ const Login = () => {
               )}
             />
 
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
         </Form>

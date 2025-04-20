@@ -20,16 +20,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Layout from "@/components/Layout";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-interface SignupForm {
-  email: string;
-  password: string;
-  role: "client" | "freelancer";
-}
+const signupSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(["client", "freelancer"], {
+    required_error: "Please select a role",
+  }),
+});
+
+type SignupForm = z.infer<typeof signupSchema>;
 
 const Signup = () => {
-  const { signUp } = useAuth();
-  const form = useForm<SignupForm>();
+  const { signUp, isLoading } = useAuth();
+  
+  const form = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      role: undefined,
+    },
+  });
 
   const onSubmit = async (data: SignupForm) => {
     await signUp(data.email, data.password, data.role);
@@ -108,8 +122,8 @@ const Signup = () => {
               )}
             />
 
-            <Button type="submit" className="w-full">
-              Sign Up
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing up..." : "Sign Up"}
             </Button>
           </form>
         </Form>

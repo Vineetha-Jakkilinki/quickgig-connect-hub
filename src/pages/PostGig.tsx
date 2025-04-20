@@ -33,6 +33,10 @@ import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Database } from "@/integrations/supabase/types";
 
 // Form validation schema
 const formSchema = z.object({
@@ -43,12 +47,16 @@ const formSchema = z.object({
   deadline: z.date().min(new Date(), { message: "Deadline must be in the future" }),
 });
 
+type GigFormValues = z.infer<typeof formSchema>;
+type GigCategory = Database['public']['Enums']['gig_category'];
+
 const PostGig = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<GigFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
@@ -58,24 +66,42 @@ const PostGig = () => {
     },
   });
   
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: GigFormValues) => {
+    if (!user) {
+      toast.error("You must be logged in to post a gig");
+      navigate("/login");
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    // Simulate API call
     try {
-      console.log("Submitted values:", values);
+      // Save gig to database
+      const { data, error } = await supabase
+        .from("gigs")
+        .insert({
+          title: values.title,
+          description: values.description,
+          category: values.category as GigCategory,
+          budget: values.budget,
+          deadline: values.deadline.toISOString(),
+          created_by: user.id,
+          status: 'open'
+        })
+        .select();
       
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (error) throw error;
       
+      toast.success("Your gig has been posted successfully!");
       setIsSuccess(true);
       
       // Redirect after success message
       setTimeout(() => {
-        navigate("/browse");
+        navigate("/dashboard");
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting form:", error);
+      toast.error(error.message || "Failed to post gig. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +122,7 @@ const PostGig = () => {
               <p className="text-green-600 mb-4">
                 Freelancers will now be able to see your gig and apply to work on it.
               </p>
-              <Button onClick={() => navigate("/browse")}>Browse Gigs</Button>
+              <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
             </div>
           ) : (
             <div className="bg-background border border-border rounded-lg p-6">
