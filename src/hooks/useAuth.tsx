@@ -102,27 +102,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      
+      const authResponse = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
-      if (error) throw error;
+      
+      if (authResponse.error) throw authResponse.error;
 
       toast.success("Logged in successfully!");
       
       // Redirect based on user role after profile is loaded
       setTimeout(async () => {
-        const { data } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-        
-        if (data?.role === "client") {
-          navigate("/post");
-        } else {
-          navigate("/browse");
+        try {
+          const { data } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", authResponse.data.user.id)
+            .single();
+          
+          if (data?.role === "client") {
+            navigate("/post");
+          } else {
+            navigate("/browse");
+          }
+        } catch (error) {
+          console.error("Error fetching profile for redirect:", error);
+          navigate("/dashboard");
         }
       }, 0);
     } catch (error: any) {
