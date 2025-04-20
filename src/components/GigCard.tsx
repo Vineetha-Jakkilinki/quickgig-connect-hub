@@ -4,14 +4,15 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import CategoryBadge from "@/components/ui/CategoryBadge";
 import { Button } from "./ui/button";
+import { Database } from "@/integrations/supabase/types";
 
-interface GigCardProps {
+export interface GigCardProps {
   id: string;
   title: string;
   description: string;
   budget: number;
   deadline: string;
-  category: string;
+  category: Database["public"]["Enums"]["gig_category"];
 }
 
 const GigCard = ({ id, title, description, budget, deadline, category }: GigCardProps) => {

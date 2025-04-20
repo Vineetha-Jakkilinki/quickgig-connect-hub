@@ -25,7 +25,7 @@ const BrowseGigs = () => {
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    category: "all" as string,
+    category: "all" as string | GigCategory,
     search: "",
     budget: [50, 500] as [number, number],
   });
@@ -44,7 +44,7 @@ const BrowseGigs = () => {
         .lte("budget", filters.budget[1]);
 
       if (filters.category !== "all") {
-        query = query.eq("category", filters.category);
+        query = query.eq("category", filters.category as GigCategory);
       }
 
       if (filters.search) {
@@ -170,7 +170,14 @@ const BrowseGigs = () => {
                     className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors cursor-pointer"
                     onClick={() => navigate(`/gig/${gig.id}`)}
                   >
-                    <GigCard gig={gig} />
+                    <GigCard 
+                      id={gig.id} 
+                      title={gig.title} 
+                      description={gig.description} 
+                      budget={gig.budget} 
+                      deadline={gig.deadline} 
+                      category={gig.category} 
+                    />
                   </div>
                 ))}
               </div>
