@@ -9,7 +9,134 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      applications: {
+        Row: {
+          applied_at: string
+          freelancer_id: string
+          gig_id: string
+          id: string
+          message: string
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          freelancer_id: string
+          gig_id: string
+          id?: string
+          message: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          freelancer_id?: string
+          gig_id?: string
+          id?: string
+          message?: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_freelancer_id_fkey"
+            columns: ["freelancer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_gig_id_fkey"
+            columns: ["gig_id"]
+            isOneToOne: false
+            referencedRelation: "gigs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gigs: {
+        Row: {
+          budget: number
+          category: Database["public"]["Enums"]["gig_category"]
+          created_at: string
+          created_by: string
+          deadline: string
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["gig_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget: number
+          category: Database["public"]["Enums"]["gig_category"]
+          created_at?: string
+          created_by: string
+          deadline: string
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["gig_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget?: number
+          category?: Database["public"]["Enums"]["gig_category"]
+          created_at?: string
+          created_by?: string
+          deadline?: string
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["gig_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gigs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          profile_pic: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          skills: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name: string
+          profile_pic?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          skills?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          profile_pic?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          skills?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +145,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      application_status: "pending" | "accepted" | "rejected"
+      gig_category: "Design" | "Docs" | "Code"
+      gig_status: "open" | "in_progress" | "completed" | "cancelled"
+      user_role: "client" | "freelancer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +263,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      application_status: ["pending", "accepted", "rejected"],
+      gig_category: ["Design", "Docs", "Code"],
+      gig_status: ["open", "in_progress", "completed", "cancelled"],
+      user_role: ["client", "freelancer"],
+    },
   },
 } as const
