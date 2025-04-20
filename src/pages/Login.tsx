@@ -1,6 +1,6 @@
 
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -24,7 +25,15 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, user } = useAuth();
+  const navigate = useNavigate();
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
   
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),

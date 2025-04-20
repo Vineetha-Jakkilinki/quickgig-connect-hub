@@ -1,8 +1,8 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import GigCard from "@/components/GigCard";
 import Layout from "@/components/Layout";
+import { Database } from "@/integrations/supabase/types";
 
 // Demo data for featured gigs
 const featuredGigs = [
@@ -12,7 +12,7 @@ const featuredGigs = [
     description: "I want a clean, modern thumbnail with bold fonts. Use my picture. Text should be: 'How I Study for Exams'.",
     budget: 150,
     deadline: "2025-05-01",
-    category: "Design"
+    category: "Design" as Database["public"]["Enums"]["gig_category"]
   },
   {
     id: "2",
@@ -20,7 +20,7 @@ const featuredGigs = [
     description: "I need a simple script to analyze CSV data for my statistics project. Must have visualizations.",
     budget: 200,
     deadline: "2025-04-25",
-    category: "Code"
+    category: "Code" as Database["public"]["Enums"]["gig_category"]
   },
   {
     id: "3",
@@ -28,7 +28,7 @@ const featuredGigs = [
     description: "Looking for someone to check grammar, punctuation and improve the flow of my essay on climate change.",
     budget: 100,
     deadline: "2025-04-23",
-    category: "Docs"
+    category: "Docs" as Database["public"]["Enums"]["gig_category"]
   }
 ];
 

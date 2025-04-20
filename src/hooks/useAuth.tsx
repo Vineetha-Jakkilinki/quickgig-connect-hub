@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth state changed:", event, session?.user?.id);
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Check for existing session
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, role: "client" | "freelancer") => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -111,12 +111,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       toast.success("Logged in successfully!");
       
-      // Redirect based on user role
+      // Redirect based on user role after profile is loaded
       setTimeout(async () => {
         const { data } = await supabase
           .from("profiles")
           .select("role")
-          .eq("id", user?.id)
+          .eq("id", data.user.id)
           .single();
         
         if (data?.role === "client") {

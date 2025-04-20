@@ -8,9 +8,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
 
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();
+  const [initials, setInitials] = useState("");
+
+  useEffect(() => {
+    if (profile?.name) {
+      setInitials(profile.name[0].toUpperCase());
+    } else if (user?.email) {
+      setInitials(user.email[0].toUpperCase());
+    }
+  }, [user, profile]);
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -38,7 +48,7 @@ const Navbar = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-                    {profile?.name?.[0].toUpperCase() || user.email?.[0].toUpperCase()}
+                    {initials}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
